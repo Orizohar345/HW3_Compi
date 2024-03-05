@@ -1,0 +1,97 @@
+
+
+%{
+	#include <iostream>
+	#include <stdlib.h>
+    #include "hw3_output.hpp"
+    #include "tables_stack.h"
+
+	using namespace std;
+	extern int yylex();
+    extern int yylineno;
+	int yyerror(const char * message);
+%}
+%union {
+    struct Entry entry;
+}
+
+%token TRUE FALSE RETURN IF WHILE BREAK CONTINUE SC LPAREN RPAREN LBRACE RBRACE
+
+%token <entry> INT
+%token <entry> BYTE
+%token <entry> B
+%token <entry> BOOL
+%token <entry> TRUE
+%token <entry> ID
+%token <entry> NUM
+%token <entry> STRING
+
+%type <entry> Type
+%type <entry> Exp
+
+
+%right ASSIGN
+%left OR
+%left AND
+%left RELOP_EQ
+%left RELOP_REL
+%left BINOP_ADD
+%left BINOP_MULT
+%right NOT
+%left LPAREN RPAREN LBRACE RBRACE
+%right ELSE
+
+%%
+
+Program         :       Statements {}
+                ;
+Statements      :       Statement {}
+                |       Statements Statement {}
+                ;
+Statement       :       LBRACE Statements RBRACE {}
+                |       Type ID SC {}
+                |       Type ID ASSIGN Exp SC {}
+                |       ID ASSIGN Exp SC {}
+                |       Call SC {}
+                |       RETURN SC  {}
+                |       IF LPAREN Exp RPAREN Statement {}
+                |       IF LPAREN Exp RPAREN Statement ELSE Statement {}
+                |       WHILE LPAREN Exp RPAREN Statement {}
+                |       BREAK SC {}
+                |       CONTINUE SC {}
+                ;
+Call            :       ID LPAREN Exp RPAREN {}
+                ;
+Type            :       INT {}
+                |       BOOL {}
+                |       BYTE    {}
+                ;
+Exp             :       LPAREN Exp RPAREN       {}
+                |       Exp BINOP_MULT Exp           {}
+                |       Exp BINOP_ADD Exp           {}
+                |       ID                      {}
+                |       Call                    {}
+                |       NUM                     {}
+                |       NUM B                   {}
+                |       STRING                  {}
+                |       TRUE                    {}
+                |       FALSE                   {}
+                |       NOT Exp                 {}
+                |       Exp AND Exp             {}
+                |       Exp OR Exp              {}
+                |       Exp RELOP_EQ Exp           {}
+                |       Exp RELOP_REL Exp           {}
+                |       LPAREN Type RPAREN Exp  {}
+                ;
+%%
+
+int main()
+{
+	yyparse();
+}
+
+int yyerror(const char * message)
+{
+	output::errorSyn(yylineno);
+	exit(0);
+}
