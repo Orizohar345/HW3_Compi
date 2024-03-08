@@ -1,8 +1,8 @@
 %{
-	#include "parser.tab.hpp"
         #include "hw3_output.hpp"
-        #include "tables_stack.h"
+	#include "parser.tab.hpp"
         #include "types.h"
+
 %}
 
 %option yylineno

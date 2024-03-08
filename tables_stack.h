@@ -1,10 +1,11 @@
 #ifndef TABLES_STACK_H
 #define TABLES_STACK_H
 
+#include <iostream>
+#include <string>
 #include <vector>
 #include <stack>
 #include <algorithm>
-#include <iostream>
 #include "hw3_output.hpp"
 
 class Entry {

@@ -1,7 +1,5 @@
 
 #include "types.h"
-#include <typeinfo>
-
 
 std::string verifyBinop(std::string type1, std::string type2, int lineno)
 {
@@ -52,15 +50,5 @@ std::string verifyFunc(std::string func_id, std::string arg_type, int lineno) {
 
         output::errorUndefFunc(lineno, func_id);
         exit(1);
-}
-
-int main() {
-
-        std::cout << verifyBinop("BYTE", "BYTE", 0) << std::endl;
-        std::cout << verifyBinop("BYTE", "BYTE", 0) << std::endl;
-        std::cout << verifyBinop("INT", "BYTE", 0) << std::endl;
-        std::cout << verifyBinop("BYTE", "INT", 0) << std::endl;
-        std::cout << verifyBinop("INT", "INT", 0) << std::endl;
-
 }
 
