@@ -2,6 +2,7 @@
 	#include "parser.tab.hpp"
         #include "hw3_output.hpp"
         #include "tables_stack.h"
+        #include "types.h"
 %}
 
 %option yylineno
@@ -33,10 +34,10 @@ continue        {return CONTINUE;}
 >|<|<=|>=                               {return RELOP_REL;}
 \-|\+                                   {return BINOP_ADD;}
 \/|\*                                   {return BINOP_MULT;}
-[a-zA-Z][a-zA-Z0-9]*                    {return ID;}
+[a-zA-Z][a-zA-Z0-9]*                    {yylval.text = yytext; return ID;}
 [1-9][0-9]*|0                           {return NUM;}
 \"([^\n\r\"\\]|\\[rnt"\\])+\"           {return STRING;}
-[ \n\t\r]	                                ;
+[ \n\t\r]	                        ;
 \/\/[^\r\n]*[ \r|\n|\r\n]?              ;
 .                                       {output::errorLex(yylineno); exit(0);}
 

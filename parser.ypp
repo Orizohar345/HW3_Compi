@@ -3,31 +3,33 @@
 %{
 	#include <iostream>
 	#include <stdlib.h>
+    #include <string>
     #include "hw3_output.hpp"
     #include "tables_stack.h"
+    #include "types.h"
 
 	using namespace std;
 	extern int yylex();
     extern int yylineno;
 	int yyerror(const char * message);
 %}
+
 %union {
-    struct Entry entry;
+    std::string text;
+    std::string type;
+    struct Exp exp;
 }
 
-%token TRUE FALSE RETURN IF WHILE BREAK CONTINUE SC LPAREN RPAREN LBRACE RBRACE
 
-%token <entry> INT
-%token <entry> BYTE
-%token <entry> B
-%token <entry> BOOL
-%token <entry> TRUE
-%token <entry> ID
-%token <entry> NUM
-%token <entry> STRING
 
-%type <entry> Type
-%type <entry> Exp
+%token TRUE FALSE RETURN IF WHILE BREAK CONTINUE SC LPAREN RPAREN LBRACE RBRACE BYTE B BOOL TRUE NUM STRING
+
+%token <string> ID
+
+
+%type <type> Type
+%type <exp> Call
+%type <exp> Exp
 
 
 %right ASSIGN
@@ -43,50 +45,241 @@
 
 %%
 
-Program         :       Statements {}
+Program         :       Statements {table_stack.removeTopTable(); }
                 ;
 Statements      :       Statement {}
                 |       Statements Statement {}
                 ;
-Statement       :       LBRACE Statements RBRACE {}
-                |       Type ID SC {}
-                |       Type ID ASSIGN Exp SC {}
-                |       ID ASSIGN Exp SC {}
-                |       Call SC {}
-                |       RETURN SC  {}
-                |       IF LPAREN Exp RPAREN Statement {}
-                |       IF LPAREN Exp RPAREN Statement ELSE Statement {}
-                |       WHILE LPAREN Exp RPAREN Statement {}
-                |       BREAK SC {}
-                |       CONTINUE SC {}
+Statement       :       LBRACE {table_stack.addNewTable();} Statements RBRACE {table_stack.removeTopTable();}
+                |       Type ID SC {
+                                    if (table_stack.entryExists($2.text)) {
+                                        output::errorDef(yylineno, $2.text);
+                                        exit(1);
+                                    }
+
+                                    table_stack.addToTopTable(Entry($2.name, $1.type));
+                                    }
+                |       Type ID ASSIGN Exp SC {
+                                                if (!$3.is_const && !table_stack.entryExists($3.text)) {
+                                                    output::errorUndef(yylineno, $3.text);
+                                                    exit(1);
+                                                }
+
+                                                if (table_stack.entryExists($2.text)) {
+                                                    output::errorDef(yylineno, $2.text);
+                                                    exit(1);
+                                                }
+
+                                                if ($1.type != $3.type && ($1.type != "INT" && $3.type != "BYTE")) {
+                                                    output::errorMismatch(yylineno);
+                                                    exit(1);
+                                                }
+
+                                                table_stack.addToTopTable(Entry($2.name, $1.type));
+                                              }
+                |       ID ASSIGN Exp SC {
+                                               if ((!$3.is_const && !table_stack.entryExists($3.text)) || table_stack.entryExists($3.text)) {
+                                                    output::errorUndef(yylineno, $3.text);
+                                                    exit(1);
+                                                }
+
+                                                if ($1.type != $3.type && ($1.type != "INT" && $3.type != "BYTE")) {
+                                                    output::errorMismatch(yylineno);
+                                                    exit(1);
+                                                }
+                }
+                |       Call SC                 {}
+                |       RETURN SC               {}
+                |       IF LPAREN Exp RPAREN    {
+                                               if ((!$3.is_const && !table_stack.entryExists($3.text)) || table_stack.entryExists($3.text)) {
+                                                    output::errorUndef(yylineno, $3.text);
+                                                    exit(1);
+                                                }
+                                                if ($3.type != "BOOL") {
+                                                    output::errorMismatch(yylineno);
+                                                }
+                                                table_stack.addNewTable();
+                                                } Statement {table_stack.removeTopTable();}
+                |       IF LPAREN Exp RPAREN    {
+                                               if ((!$3.is_const && !table_stack.entryExists($3.text)) || table_stack.entryExists($3.text)) {
+                                                    output::errorUndef(yylineno, $3.text);
+                                                    exit(1);
+                                                }
+                                                if ($3.type != "BOOL") {
+                                                    output::errorMismatch(yylineno);
+                                                }
+                                                table_stack.addNewTable();
+
+                                                } Statement { table_stack.removeTopTable(); } ELSE { table_stack.addNewTable(); } Statement { table_stack.removeTopTable(); }
+                |       WHILE LPAREN Exp RPAREN     {
+                                                    if ((!$3.is_const && !table_stack.entryExists($3.text)) || table_stack.entryExists($3.text)) {
+                                                        output::errorUndef(yylineno, $3.text);
+                                                        exit(1);
+                                                    }
+                                                    if ($3.type != "BOOL") {
+                                                        output::errorMismatch(yylineno);
+                                                    }
+                                                    table_stack.addNewTable();
+                                                    table_stack.addToTopTable(Entry("WHILE", "WHILE"), true);
+                                                    } Statement {table_stack.removeTopTable();}
+                |       BREAK SC                    {if (!table_stack.entryExists("WHILE")) { output::errorUnexpectedBreak(lineno); exit(1);}}
+                |       CONTINUE SC                 {if (!table_stack.entryExists("WHILE")) { output::errorUnexpectedContinue(lineno); exit(1);}}
                 ;
-Call            :       ID LPAREN Exp RPAREN {}
+Call            :       ID LPAREN Exp RPAREN {
+                                            if (!$3.is_const && !table_stack.entryExists($3.text)) {
+                                                output::errorUndef(yylineno, $3.text);
+                                                exit(1);
+                                            }
+                                            $$.type = verifyFunc($1.text, $3.type, yylineno); $$.is_const = true;
+                                            }
                 ;
-Type            :       INT {}
-                |       BOOL {}
-                |       BYTE    {}
+Type            :       INT         {$$.type = "INT"}
+                |       BOOL        {$$.type = "BOOL"}
+                |       BYTE        {$$.type = "BYTE"}
                 ;
-Exp             :       LPAREN Exp RPAREN       {}
-                |       Exp BINOP_MULT Exp           {}
-                |       Exp BINOP_ADD Exp           {}
-                |       ID                      {}
-                |       Call                    {}
-                |       NUM                     {}
-                |       NUM B                   {}
-                |       STRING                  {}
-                |       TRUE                    {}
-                |       FALSE                   {}
-                |       NOT Exp                 {}
-                |       Exp AND Exp             {}
-                |       Exp OR Exp              {}
-                |       Exp RELOP_EQ Exp           {}
-                |       Exp RELOP_REL Exp           {}
-                |       LPAREN Type RPAREN Exp  {}
+Exp             :       LPAREN Exp RPAREN       {
+                                                if (!$2.is_const && !table_stack.entryExists($2.text)) {
+                                                    output::errorUndef(yylineno, $2.text);
+                                                    exit(1);
+                                                }
+                                                $$.text = $2.text; $$.type = $2.type; $$.is_const = $2.is_const;
+                                                }
+                |       Exp BINOP_MULT Exp      {
+                                                if (!$1.is_const && !table_stack.entryExists($1.text)) {
+                                                     output::errorUndef(lineno, $1.text);
+                                                     exit(1);
+                                                }
+
+                                                if (!$3.is_const && !table_stack.entryExists($3.text)) {
+                                                    output::errorUndef(lineno, $3.text);
+                                                    exit(1);
+                                                }
+
+                                                $$.type = verifyBinop($1.type, $3.type); $$.is_const = true
+                                                }
+                |       Exp BINOP_ADD Exp       {
+                                                if (!$1.is_const && !table_stack.entryExists($1.text)) {
+                                                    output::errorUndef(lineno, $1.text);
+                                                    exit(1);
+                                                }
+
+                                                if (!$3.is_const && !table_stack.entryExists($3.text)) {
+                                                    output::errorUndef(lineno, $3.text);
+                                                    exit(1);
+                                                }
+
+                                                $$.type = verifyBinop($1.type, $3.type); $$.is_const = true
+                                                }
+                |       ID                      {$$.text = $1.text; $$.is_const = false;}
+                |       Call                    {$$.text = $1.text; $$.type = $1.type; $$.is_const = $1.is_const;}
+                |       NUM                     {$$.type = "INT"; $$.is_const = true;}
+                |       NUM B                   {$$.type = "BYTE"; $$.is_const = true;}
+                |       STRING                  {$$.type = "STRING"; $$.is_const = true;}
+                |       TRUE                    {$$.type = "BOOL"; $$.is_const = true;}
+                |       FALSE                   {$$.type = "BOOL"; $$.is_const = true;}
+                |       NOT Exp                 {
+                                                if (!$2.is_const && !table_stack.entryExists($2.text)) {
+                                                    output::errorUndef(yylineno, $2.text);
+                                                    exit(1);
+                                                }
+
+                                                if ($2.type != "BOOL") {
+                                                    output::errorMismatch(yylineno, $2.text);
+                                                    exit(1);
+                                                }
+
+                                                $$.type = "BOOL"; $$.is_const = true;
+                                                }
+                |       Exp AND Exp             {
+                                                if (!$1.is_const && !table_stack.entryExists($1.text)) {
+                                                    output::errorUndef(yylineno, $1.text);
+                                                    exit(1);
+                                                }
+
+                                                if (!$3.is_const && !table_stack.entryExists($3.text)) {
+                                                    output::errorUndef(yylineno, $3.text);
+                                                    exit(1);
+                                                }
+
+                                                if ($1.type != "BOOL") {
+                                                    output::errorMismatch(yylineno, $1.text);
+                                                    exit(1);
+                                                }
+
+
+                                                if ($3.type != "BOOL") {
+                                                    output::errorMismatch(yylineno, $1.text);
+                                                    exit(1);
+                                                }
+
+                                                $$.type = "BOOL"; $$.is_const = true;
+                                                }
+                |       Exp OR Exp              {
+                                                if (!$1.is_const && !table_stack.entryExists($1.text)) {
+                                                    output::errorUndef(yylineno, $1.text);
+                                                    exit(1);
+                                                }
+
+                                                if (!$3.is_const && !table_stack.entryExists($3.text)) {
+                                                    output::errorUndef(yylineno, $3.text);
+                                                    exit(1);
+                                                }
+
+                                                if ($1.type != "BOOL") {
+                                                    output::errorMismatch(yylineno, $1.text);
+                                                    exit(1);
+                                                }
+
+
+                                                if ($3.type != "BOOL") {
+                                                    output::errorMismatch(yylineno, $1.text);
+                                                    exit(1);
+                                                }
+
+                                                $$.type = "BOOL"; $$.is_const = true;
+                                                }
+                |       Exp RELOP_EQ Exp        {
+                                                if (!$1.is_const && !table_stack.entryExists($1.text)) {
+                                                    output::errorUndef(yylineno, $1.text);
+                                                    exit(1);
+                                                }
+
+                                                if (!$3.is_const && !table_stack.entryExists($3.text)) {
+                                                    output::errorUndef(yylineno, $3.text);
+                                                    exit(1);
+                                                }
+                                                verifyNumeric = ($1.type, $3.type, yylineno);
+                                                $$.type = "BOOL"; $$.is_const = true;
+                                                }
+                |       Exp RELOP_REL Exp       {
+                                                if (!$1.is_const && !table_stack.entryExists($1.text)) {
+                                                    output::errorUndef(yylineno, $1.text);
+                                                    exit(1);
+                                                }
+
+                                                if (!$3.is_const && !table_stack.entryExists($3.text)) {
+                                                    output::errorUndef(yylineno, $3.text);
+                                                    exit(1);
+                                                }
+                                                verifyNumeric = ($1.type, $3.type, yylineno);
+                                                $$.type = "BOOL"; $$.is_const = true;
+                                                }
+                |       LPAREN Type RPAREN Exp  {
+                                                if (!$4.is_const && !table_stack.entryExists($4.text)) {
+                                                    output::errorUndef(yylineno, $4.text);
+                                                    exit(1);
+                                                }
+
+                                                verifyNumeric($2.type, $4.type, yylineno);
+                                                $$.text = $4.text; $$.type = $2.type; $$.is_const = true}
                 ;
 %%
 
+(int)x;
+y = x;
 int main()
 {
+    TablesStack table_stack;
 	yyparse();
 }
 
@@ -95,3 +288,4 @@ int yyerror(const char * message)
 	output::errorSyn(yylineno);
 	exit(0);
 }
+

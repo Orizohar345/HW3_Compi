@@ -3,28 +3,38 @@
 
 #include <vector>
 #include <stack>
-#include <algorithm> // for std::find_if
+#include <algorithm>
+#include <iostream>
+#include "hw3_output.hpp"
 
-struct Entry {
+class Entry {
+public:
     std::string name;
     std::string type;
-    bool isConst;
     int offset;
+
+    Entry(const std::string& name, const std::string& type, int offset = 0)
+        : name(name), type(type), offset(offset) {}
+    ~Entry() = default;
+    Entry(const Entry& other) : name(other.name), type(other.type), offset(other.offset) {}
 };
 
 class TablesStack {
 private:
-    std::vector<std::vector<Entry>> symbol_table;
+    std::vector<std::vector<Entry> > symbol_table;
+    std::vector<int> offsets_stack;
 
 public:
     // Constructor that creates an empty symbol table with one empty table
     TablesStack();
 
-    // Push a new empty table onto the stack
-    void push();
+    ~TablesStack() = default;
 
-    // Pop table from the top of the stack
-    std::vector<Entry> pop();
+    // Push a new empty table onto the stack
+    void addNewTable();
+
+
+    void removeTopTable();
 
     // Check if the stack is empty
     bool empty() const;
@@ -33,13 +43,14 @@ public:
     size_t size() const;
 
     // Access the top table (without modifying the stack)
-    const std::vector<Entry>& top() const;
+    std::vector<Entry>& getTopTable();
 
     // Add Entry to the table in the top of the stack.
-    void addToTopTable(const Entry& entry);
+    void addToTopTable(Entry&& entry, bool is_func = false);
 
-    // Search for an entry with a specific name across all tables (top to bottom)
-    // Returns the Entry if found, otherwise throws std::runtime_error
-    Entry searchEntry(const std::string& name) const;
+    bool entryExists(const std::string& name) const;
 
+    Entry getEntry(const std::string& name) const;
 };
+
+#endif
