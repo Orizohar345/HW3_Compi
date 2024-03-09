@@ -72,7 +72,7 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { table_stac
                     output::errorUndef(yylineno, exp->text);
                     exit(1);
                 }
-                Entry *entry;
+                Entry entry("", "", 0);
                 if (table_stack.entryExists($1->text)) {
                     entry = table_stack.getEntry($1->text);
                 } else {
@@ -80,7 +80,7 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { table_stac
                     exit(1);
                 }
 
-                if (entry->type != exp->type && ($1->text != "INT" && exp->type != "BYTE")) {
+                if (entry.type != exp->type && (entry.type != "INT" && exp->type != "BYTE")) {
                     output::errorMismatch(yylineno);
                     exit(1);
                 }
@@ -142,7 +142,7 @@ Exp : LPAREN Exp RPAREN {
                 exit(1);
             }
             std::string type = verifyBinop(exp1->type, exp2->type, yylineno);
-            int val = verifyByte(exp1->type, exp2->type, exp1->val, exp2->val, "MULT", yylineno)
+            int val = verifyByte(exp1->type, exp2->type, exp1->val, exp2->val, "MULT", yylineno);
             $$ = new Exp("", type, val, true);
         }
     | Exp BINOP_ADD Exp {
@@ -157,7 +157,7 @@ Exp : LPAREN Exp RPAREN {
                 exit(1);
             }
             std::string type = verifyBinop(exp1->type, exp2->type, yylineno);
-            int val = verifyByte(exp1->type, exp2->type, exp1->val, exp2->val, "ADD", yylineno)
+            int val = verifyByte(exp1->type, exp2->type, exp1->val, exp2->val, "ADD", yylineno);
             $$ = new Exp("", type, val, true);
         }
     | ID {$$ = new Exp($1->text, "", 0, false);}
@@ -165,11 +165,12 @@ Exp : LPAREN Exp RPAREN {
          Call* call = dynamic_cast<Call*>($1);
          $$ = new Exp(call->text, call->type, call->val, call->is_const);
          }
-    | NUM { $$ = new Exp($1->text, "INT", std::stoi($1->text), true); }
+    | NUM { int value = std::stoi($1->text); $$ = new Exp($1->text, "INT", value, true); }
     | NUM B {
-         $$ = new Exp($1->text, "BYTE", std::stoi($1->text), true);
-         if (dynamic_cast<Exp*>($$)->val > 255) {
-            output::errorByteTooLarge(yylineno, dynamic_cast<Exp*>($$)->val);
+        int value = std::stoi($1->text);
+         $$ = new Exp($1->text, "BYTE", value, true);
+         if (value > 255) {
+            output::errorByteTooLarge(yylineno, $1->text);
             exit(1);
             }
         }
@@ -244,7 +245,7 @@ Exp : LPAREN Exp RPAREN {
                 exit(1);
             }
 
-            verifyNumeric(exp->type, exp2->type, yylineno);
+            verifyNumeric(exp1->type, exp2->type, yylineno);
             $$ = new Exp("", "BOOL", 0, true);
         }
     | Exp RELOP_REL Exp {
@@ -259,7 +260,7 @@ Exp : LPAREN Exp RPAREN {
                 exit(1);
             }
 
-            verifyNumeric(exp->type, exp2->type, yylineno);
+            verifyNumeric(exp1->type, exp2->type, yylineno);
             $$ = new Exp("", "BOOL", 0, true);
         }
     | LPAREN Type RPAREN Exp {
@@ -270,7 +271,7 @@ Exp : LPAREN Exp RPAREN {
             }
             verifyNumeric($2->text, exp->type, yylineno);
             if ($2->text == "BYTE" && exp->val > 255) {
-                output::errorByteTooLarge(yylineno, exp->val);
+                output::errorByteTooLarge(yylineno, std::to_string(exp->val));
                 exit(1);
             }
             $$ = new Exp("", exp->type, exp->val, true);

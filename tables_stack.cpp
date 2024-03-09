@@ -53,20 +53,16 @@ void TablesStack::addToTopTable(Entry&& entry, bool is_func) {
     }
      std::cout << "Add New To Top Table" << std::endl;
     if (!is_func) {
-         std::cout << "Seg Here13" << std::endl;
         entry.offset = offsets_stack.back();
         offsets_stack.push_back(offsets_stack.back()+1);
     }
-    std::cout << "Seg Here1" << std::endl;
     TablesStack::getTopTable().push_back(entry); // Add entry to the back of the top table
-    std::cout << "Seg Here12" << std::endl;
 }
 
 
 
 bool TablesStack::entryExists(const std::string& name) const {
     // Iterate through tables from top to bottom
-    std::cout << " ERR " << std::endl;
     for (const auto& table : symbol_table) {
         auto it = std::find_if(table.begin(), table.end(), [&name](const Entry& entry) { return entry.name == name; });
         if (it != table.end()) {
@@ -76,12 +72,12 @@ bool TablesStack::entryExists(const std::string& name) const {
     return false; // Return false if the entry is not found
 }
 
-Entry *TablesStack::getEntry(const std::string& name) const {
+Entry TablesStack::getEntry(const std::string& name) const {
     // Iterate through tables from top to bottom
     for (const auto& table : symbol_table) {
         auto it = std::find_if(table.begin(), table.end(), [&name](const Entry& entry) { return entry.name == name; });
         if (it != table.end()) {
-            return &(*it); // Return the found Entry
+            return (*it); // Return the found Entry
         }
     }
     throw std::runtime_error("Entry not found in the stack");

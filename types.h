@@ -39,6 +39,7 @@ public:
 };
 
 #define YYSTYPE Node*
+
 // Class for types, same as Node
 class Type : public Node {
 public:
@@ -92,10 +93,9 @@ public:
 };
 
 
-
+void verifyNumeric(std::string type1, std::string type2, int lineno);
 std::string verifyBinop(std::string type1, std::string type2, int lineno);
 int verifyByte(std::string type1, std::string type2, int val1, int val2, std::string operation, int lineno);
-void verifyNumeric(std::string type1, std::string type2, int lineno);
 std::string verifyFunc(std::string func_id, std::string arg_type, int lineno);
 
 #endif
