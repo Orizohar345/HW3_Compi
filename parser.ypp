@@ -58,16 +58,15 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { output::en
                     exit(1);
                 }
 
-                if ($1->text != exp->type && ($1->text != "INT" && exp->type != "BYTE")) {
+                if ($1->text != exp->type && !($1->text == "INT" && exp->type == "BYTE")) {
                     output::errorMismatch(yylineno);
                     exit(1);
                 }
-
                 table_stack.addToTopTable(Entry($2->text, $1->text, exp->val));
             }
           | ID ASSIGN Exp SC {
                 Exp* exp = dynamic_cast<Exp*>($3);
-                if ((!exp->is_const && !table_stack.entryExists(exp->text)) || table_stack.entryExists(exp->text)) {
+                if ((!exp->is_const && !table_stack.entryExists(exp->text))) {
                     output::errorUndef(yylineno, exp->text);
                     exit(1);
                 }
@@ -75,11 +74,11 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { output::en
                 if (table_stack.entryExists($1->text)) {
                     entry = table_stack.getEntry($1->text);
                 } else {
-                    output::errorDef(yylineno, $1->text);
+                    output::errorUndef(yylineno, $1->text);
                     exit(1);
                 }
 
-                if (entry.type != exp->type && (entry.type != "INT" && exp->type != "BYTE")) {
+                if (entry.type != exp->type && !(entry.type == "INT" && exp->type == "BYTE")) {
                     output::errorMismatch(yylineno);
                     exit(1);
                 }
@@ -91,15 +90,13 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { output::en
           | IF LPAREN M1 RPAREN Statement M2 ELSE { table_stack.addNewTable(); } Statement {output::endScope(); table_stack.removeTopTable(); }
           | WHILE LPAREN Exp RPAREN {
                 Exp* exp = dynamic_cast<Exp*>($3);
-                if ((!exp->is_const && !table_stack.entryExists(exp->text)) || table_stack.entryExists(exp->text)) {
+                if ((!exp->is_const && !table_stack.entryExists(exp->text))) {
                     output::errorUndef(yylineno, exp->text);
                     exit(1);
                 }
-
                 if (exp->type != "BOOL") {
                     output::errorMismatch(yylineno);
                 }
-
                 table_stack.addNewTable();
                 table_stack.addToTopTable(Entry("WHILE", "WHILE"), true);
             } Statement {output::endScope(); table_stack.removeTopTable(); }
@@ -180,9 +177,9 @@ Exp : LPAREN Exp RPAREN {
             exit(1);
             }
         }
-    | STRING { $$ = new Exp($1->text, "STRING", 0, true); }
-    | TRUE { $$ = new Exp($1->text, "BOOL", 1, true); }
-    | FALSE { $$ = new Exp($1->text, "BOOL", 0, true); }
+    | STRING { $$ = new Exp("", "STRING", 0, true); }
+    | TRUE { $$ = new Exp("", "BOOL", 1, true); }
+    | FALSE { $$ = new Exp("", "BOOL", 0, true); }
     | NOT Exp {
             Exp* exp = dynamic_cast<Exp*>($2);
             if (!exp->is_const && !table_stack.entryExists(exp->text)) {
@@ -279,7 +276,7 @@ Exp : LPAREN Exp RPAREN {
                 output::errorByteTooLarge(yylineno, std::to_string(exp->val));
                 exit(1);
             }
-            $$ = new Exp("", exp->type, exp->val, true);
+            $$ = new Exp("", $2->text, exp->val, true);
         }
     ;
 

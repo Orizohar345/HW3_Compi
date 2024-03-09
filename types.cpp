@@ -26,21 +26,21 @@ std::string verifyBinop(std::string type1, std::string type2, int lineno)
 std::string verifyFunc(std::string func_id, std::string arg_type, int lineno) {
         if (func_id == "print") {
                 if (arg_type != "STRING") {
-                        output::errorPrototypeMismatch(lineno, func_id, arg_type);
+                        output::errorPrototypeMismatch(lineno, func_id, "STRING");
                         exit(1);
                 }
 
                 return "VOID";
         } else if (func_id == "printi") {
                 if (arg_type != "INT" and arg_type != "BYTE" ) {
-                        output::errorPrototypeMismatch(lineno, func_id, arg_type);
+                        output::errorPrototypeMismatch(lineno, func_id,  "INT");
                         exit(1);
                 }
 
                 return "VOID";
         } else if (func_id == "readi") {
                 if (arg_type != "INT" and arg_type != "BYTE" ) {
-                        output::errorPrototypeMismatch(lineno, func_id, arg_type);
+                        output::errorPrototypeMismatch(lineno, func_id, "INT");
                         exit(1);
                 }
 
