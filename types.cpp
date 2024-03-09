@@ -52,3 +52,22 @@ std::string verifyFunc(std::string func_id, std::string arg_type, int lineno) {
         exit(1);
 }
 
+int verifyByte(std::string type1, std::string type2, int val1, int val2, std::string operation, int lineno) {
+        int res;
+
+        if (operation == "MULT")
+                res = val1 * val2;
+        else if (operation == "ADD")
+                res = val1 + val2;
+
+        if (type1 == "BYTE" && type2 == "BYTE") {
+                if (res > 255) {
+                        std::string res_str = std::stoi(res);
+                        output::errorByteTooLarge(lineno, res_str);
+                        exit(1);
+                }
+        }
+
+        return res;
+}
+

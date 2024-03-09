@@ -51,7 +51,7 @@ public:
 
     bool entryExists(const std::string& name) const;
 
-    Entry getEntry(const std::string& name) const;
+    Entry *getEntry(const std::string& name) const;
 };
 
 #endif

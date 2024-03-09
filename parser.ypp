@@ -15,34 +15,7 @@
 
 %}
 
-%union {
-    int val;
-    std::string text;
-    std::string type;
-    struct Exp {
-        std::string text;
-        std::string type;
-        bool is_const;
-        int val;
-    } exp;
-    YYSTYPE() {}
-    YYSTYPE& operator=(const YYSTYPE& other) {
-        val = other.val;
-        text = other.text;
-        type = other.type;
-        exp = other.exp;
-        return *this;
-    }
-    ~YYSTYPE() {}
-}
-
-%token TRUE FALSE RETURN IF WHILE BREAK CONTINUE SC LPAREN RPAREN LBRACE RBRACE INT BYTE B BOOL STRING
-%token <text> ID
-%token <val> NUM
-
-%type <type> Type
-%type <exp> Call
-%type <exp> Exp
+%token TRUE FALSE RETURN IF WHILE BREAK CONTINUE SC LPAREN RPAREN LBRACE RBRACE INT BYTE B BOOL STRING ID NUM
 
 %right ASSIGN
 %left OR
@@ -66,42 +39,48 @@ Statements : Statement {}
 
 Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { table_stack.removeTopTable(); }
           | Type ID SC {
-                if (table_stack.entryExists($2)) {
-                    output::errorDef(yylineno, $2);
+                if (table_stack.entryExists($2->text)) {
+                    output::errorDef(yylineno, $2->text);
                     exit(1);
                 }
 
-                table_stack.addToTopTable(Entry($2, $1));
+                table_stack.addToTopTable(Entry($2->text, $1->text));
             }
           | Type ID ASSIGN Exp SC {
-            printf("0");
-                if (!$4.is_const && !table_stack.entryExists($4.text)) {
+                Exp* exp = dynamic_cast<Exp*>($3);
+                if (!exp->is_const && !table_stack.entryExists(exp->text)) {
                     printf("1");
-                    output::errorUndef(yylineno, $4.text);
+                    output::errorUndef(yylineno, exp->text);
                     exit(1);
                 }
 
-                if (table_stack.entryExists($2)) {
-                    printf("2");
-                    output::errorDef(yylineno, $2);
+                if (table_stack.entryExists($2->text)) {
+                    output::errorDef(yylineno, $2->text);
                     exit(1);
                 }
 
-                if ($1 != $4.type && ($1 != "INT" && $4.type != "BYTE")) {
-                    printf("3");
+                if ($1->text != exp->type && ($1->text != "INT" && exp->type != "BYTE")) {
                     output::errorMismatch(yylineno);
                     exit(1);
                 }
 
-                table_stack.addToTopTable(Entry($2, $1));
+                table_stack.addToTopTable(Entry($2->text, $1->text));
             }
           | ID ASSIGN Exp SC {
-                if ((!$3.is_const && !table_stack.entryExists($3.text)) || table_stack.entryExists($3.text)) {
-                    output::errorUndef(yylineno, $3.text);
+                Exp* exp = dynamic_cast<Exp*>($3);
+                if ((!exp->is_const && !table_stack.entryExists(exp->text)) || table_stack.entryExists(exp->text)) {
+                    output::errorUndef(yylineno, exp->text);
+                    exit(1);
+                }
+                Entry *entry;
+                if (table_stack.entryExists($1->text)) {
+                    entry = table_stack.getEntry($1->text);
+                } else {
+                    output::errorDef(yylineno, $1->text);
                     exit(1);
                 }
 
-                if ($1 != $3.type && ($1 != "INT" && $3.type != "BYTE")) {
+                if (entry->type != exp->type && ($1->text != "INT" && exp->type != "BYTE")) {
                     output::errorMismatch(yylineno);
                     exit(1);
                 }
@@ -111,12 +90,13 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { table_stac
           | IF LPAREN M1 RPAREN Statement M2
           | IF LPAREN M1 RPAREN Statement M2 ELSE { table_stack.addNewTable(); } Statement { table_stack.removeTopTable(); }
           | WHILE LPAREN Exp RPAREN {
-                if ((!$3.is_const && !table_stack.entryExists($3.text)) || table_stack.entryExists($3.text)) {
-                    output::errorUndef(yylineno, $3.text);
+                Exp* exp = dynamic_cast<Exp*>($3);
+                if ((!exp->is_const && !table_stack.entryExists(exp->text)) || table_stack.entryExists(exp->text)) {
+                    output::errorUndef(yylineno, exp->text);
                     exit(1);
                 }
 
-                if ($3.type != "BOOL") {
+                if (exp->type != "BOOL") {
                     output::errorMismatch(yylineno);
                 }
 
@@ -128,160 +108,186 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { table_stac
           ;
 
 Call : ID LPAREN Exp RPAREN {
-            if (!$3.is_const && !table_stack.entryExists($3.text)) {
-                output::errorUndef(yylineno, $3.text);
+            Exp* exp = dynamic_cast<Exp*>($3);
+            if (!exp->is_const && !table_stack.entryExists(exp->text)) {
+                output::errorUndef(yylineno, exp->text);
                 exit(1);
             }
-            $$.type = verifyFunc($1, $3.type, yylineno);
-            $$.is_const = true;
+            std::string type = verifyFunc($1->text, exp->type, yylineno);
+            $$ = new Call("", type, 0, true);
         }
      ;
-
-Type : INT { $$ = std::string("INT"); }
-     | BOOL { $$ = std::string("BOOL"); }
-     | BYTE { $$ = std::string("BYTE"); }
+Type : INT { $$ = new Type("INT");}
+     | BOOL { $$ = new Type("BOOL"); }
+     | BYTE { $$ = new Type("BYTE"); }
      ;
 
 Exp : LPAREN Exp RPAREN {
-            if (!$2.is_const && !table_stack.entryExists($2.text)) {
-                output::errorUndef(yylineno, $2.text);
+            Exp* exp = dynamic_cast<Exp*>($2);
+            if (!exp->is_const && !table_stack.entryExists(exp->text)) {
+                output::errorUndef(yylineno, exp->text);
                 exit(1);
             }
-            $$.text = $2.text;
-            $$.type = $2.type;
-            $$.is_const = $2.is_const;
+            $$ = new Exp(exp->text, exp->type, exp->val, exp->is_const);
         }
     | Exp BINOP_MULT Exp {
-            if (!$1.is_const && !table_stack.entryExists($1.text)) {
-                output::errorUndef(yylineno, $1.text);
+            Exp* exp1 = dynamic_cast<Exp*>($1);
+            Exp* exp2 = dynamic_cast<Exp*>($3);
+            if (!exp1->is_const && !table_stack.entryExists(exp1->text)) {
+                output::errorUndef(yylineno, exp1->text);
                 exit(1);
             }
-            if (!$3.is_const && !table_stack.entryExists($3.text)) {
-                output::errorUndef(yylineno, $3.text);
+            if (!exp2->is_const && !table_stack.entryExists(exp2->text)) {
+                output::errorUndef(yylineno, exp2->text);
                 exit(1);
             }
-            $$.type = verifyBinop($1.type, $3.type, yylineno);
-            $$.is_const = true;
+            std::string type = verifyBinop(exp1->type, exp2->type, yylineno);
+            int val = verifyByte(exp1->type, exp2->type, exp1->val, exp2->val, "MULT", yylineno)
+            $$ = new Exp("", type, val, true);
         }
     | Exp BINOP_ADD Exp {
-            if (!$1.is_const && !table_stack.entryExists($1.text)) {
-                output::errorUndef(yylineno, $1.text);
+            Exp* exp1 = dynamic_cast<Exp*>($1);
+            Exp* exp2 = dynamic_cast<Exp*>($3);
+            if (!exp1->is_const && !table_stack.entryExists(exp1->text)) {
+                output::errorUndef(yylineno, exp1->text);
                 exit(1);
             }
-            if (!$3.is_const && !table_stack.entryExists($3.text)) {
-                output::errorUndef(yylineno, $3.text);
+            if (!exp2->is_const && !table_stack.entryExists(exp2->text)) {
+                output::errorUndef(yylineno, exp2->text);
                 exit(1);
             }
-            $$.type = verifyBinop($1.type, $3.type, yylineno);
-            $$.is_const = true;
+            std::string type = verifyBinop(exp1->type, exp2->type, yylineno);
+            int val = verifyByte(exp1->type, exp2->type, exp1->val, exp2->val, "ADD", yylineno)
+            $$ = new Exp("", type, val, true);
         }
-    | ID {printf("HERE"); $$.text = $1; $$.is_const = false; }
-    | Call { $$.text = $1.text; $$.type = $1.type; $$.is_const = $1.is_const; }
-    | NUM { $$.type = "INT"; $$.is_const = true; }
-    | NUM B { $$.type = "BYTE"; $$.is_const = true; }
-    | STRING { $$.type = "STRING"; $$.is_const = true; }
-    | TRUE { $$.type = "BOOL"; $$.is_const = true; }
-    | FALSE { $$.type = "BOOL"; $$.is_const = true; }
+    | ID {$$ = new Exp($1->text, "", 0, false);}
+    | Call {
+         Call* call = dynamic_cast<Call*>($1);
+         $$ = new Exp(call->text, call->type, call->val, call->is_const);
+         }
+    | NUM { $$ = new Exp($1->text, "INT", std::stoi($1->text), true); }
+    | NUM B {
+         $$ = new Exp($1->text, "BYTE", std::stoi($1->text), true);
+         if (dynamic_cast<Exp*>($$)->val > 255) {
+            output::errorByteTooLarge(yylineno, dynamic_cast<Exp*>($$)->val);
+            exit(1);
+            }
+        }
+    | STRING { $$ = new Exp($1->text, "STRING", 0, true); }
+    | TRUE { $$ = new Exp($1->text, "BOOL", 1, true); }
+    | FALSE { $$ = new Exp($1->text, "BOOL", 0, true); }
     | NOT Exp {
-            if (!$2.is_const && !table_stack.entryExists($2.text)) {
-                output::errorUndef(yylineno, $2.text);
+            Exp* exp = dynamic_cast<Exp*>($2);
+            if (!exp->is_const && !table_stack.entryExists(exp->text)) {
+                output::errorUndef(yylineno, exp->text);
                 exit(1);
             }
-            if ($2.type != "BOOL") {
+            if (exp->type != "BOOL") {
                 output::errorMismatch(yylineno);
                 exit(1);
             }
-            $$.type = "BOOL";
-            $$.is_const = true;
+            $$ = new Exp("", "BOOL", ~exp->val, true);
         }
     | Exp AND Exp {
-            if (!$1.is_const && !table_stack.entryExists($1.text)) {
-                output::errorUndef(yylineno, $1.text);
+            Exp* exp1 = dynamic_cast<Exp*>($1);
+            Exp* exp2 = dynamic_cast<Exp*>($3);
+            if (!exp1->is_const && !table_stack.entryExists(exp1->text)) {
+                output::errorUndef(yylineno, exp1->text);
                 exit(1);
             }
-            if (!$3.is_const && !table_stack.entryExists($3.text)) {
-                output::errorUndef(yylineno, $3.text);
+            if (!exp2->is_const && !table_stack.entryExists(exp2->text)) {
+                output::errorUndef(yylineno, exp2->text);
                 exit(1);
             }
-            if ($1.type != "BOOL") {
+
+            if (exp1->type != "BOOL") {
                 output::errorMismatch(yylineno);
                 exit(1);
             }
-            if ($3.type != "BOOL") {
+            if (exp2->type != "BOOL") {
                 output::errorMismatch(yylineno);
                 exit(1);
             }
-            $$.type = "BOOL";
-            $$.is_const = true;
+            $$ = new Exp("", "BOOL", exp1->val & exp2->val, true);
         }
     | Exp OR Exp {
-            if (!$1.is_const && !table_stack.entryExists($1.text)) {
-                output::errorUndef(yylineno, $1.text);
+            Exp* exp1 = dynamic_cast<Exp*>($1);
+            Exp* exp2 = dynamic_cast<Exp*>($3);
+            if (!exp1->is_const && !table_stack.entryExists(exp1->text)) {
+                output::errorUndef(yylineno, exp1->text);
                 exit(1);
             }
-            if (!$3.is_const && !table_stack.entryExists($3.text)) {
-                output::errorUndef(yylineno, $3.text);
+            if (!exp2->is_const && !table_stack.entryExists(exp2->text)) {
+                output::errorUndef(yylineno, exp2->text);
                 exit(1);
             }
-            if ($1.type != "BOOL") {
+
+            if (exp1->type != "BOOL") {
                 output::errorMismatch(yylineno);
                 exit(1);
             }
-            if ($3.type != "BOOL") {
+            if (exp2->type != "BOOL") {
                 output::errorMismatch(yylineno);
                 exit(1);
             }
-            $$.type = "BOOL";
-            $$.is_const = true;
+            $$ = new Exp("", "BOOL", exp1->val | exp2->val, true);
         }
     | Exp RELOP_EQ Exp {
-            if (!$1.is_const && !table_stack.entryExists($1.text)) {
-                output::errorUndef(yylineno, $1.text);
+            Exp* exp1 = dynamic_cast<Exp*>($1);
+            Exp* exp2 = dynamic_cast<Exp*>($3);
+            if (!exp1->is_const && !table_stack.entryExists(exp1->text)) {
+                output::errorUndef(yylineno, exp1->text);
                 exit(1);
             }
-            if (!$3.is_const && !table_stack.entryExists($3.text)) {
-                output::errorUndef(yylineno, $3.text);
+            if (!exp2->is_const && !table_stack.entryExists(exp2->text)) {
+                output::errorUndef(yylineno, exp2->text);
                 exit(1);
             }
-            verifyNumeric($1.type, $3.type, yylineno);
-            $$.type = "BOOL";
-            $$.is_const = true;
+
+            verifyNumeric(exp->type, exp2->type, yylineno);
+            $$ = new Exp("", "BOOL", 0, true);
         }
     | Exp RELOP_REL Exp {
-            if (!$1.is_const && !table_stack.entryExists($1.text)) {
-                output::errorUndef(yylineno, $1.text);
+            Exp* exp1 = dynamic_cast<Exp*>($1);
+            Exp* exp2 = dynamic_cast<Exp*>($3);
+            if (!exp1->is_const && !table_stack.entryExists(exp1->text)) {
+                output::errorUndef(yylineno, exp1->text);
                 exit(1);
             }
-            if (!$3.is_const && !table_stack.entryExists($3.text)) {
-                output::errorUndef(yylineno, $3.text);
+            if (!exp2->is_const && !table_stack.entryExists(exp2->text)) {
+                output::errorUndef(yylineno, exp2->text);
                 exit(1);
             }
-            verifyNumeric($1.type, $3.type, yylineno);
-            $$.type = "BOOL";
-            $$.is_const = true;
+
+            verifyNumeric(exp->type, exp2->type, yylineno);
+            $$ = new Exp("", "BOOL", 0, true);
         }
     | LPAREN Type RPAREN Exp {
-            if (!$4.is_const && !table_stack.entryExists($4.text)) {
-                output::errorUndef(yylineno, $4.text);
+            Exp* exp = dynamic_cast<Exp*>($4);
+            if (!exp->is_const && !table_stack.entryExists(exp->text)) {
+                output::errorUndef(yylineno, exp->text);
                 exit(1);
             }
-            verifyNumeric($2, $4.type, yylineno);
-            $$.text = $4.text;
-            $$.type = $2;
-            $$.is_const = true;
+            verifyNumeric($2->text, exp->type, yylineno);
+            if ($2->text == "BYTE" && exp->val > 255) {
+                output::errorByteTooLarge(yylineno, exp->val);
+                exit(1);
+            }
+            $$ = new Exp("", exp->type, exp->val, true);
         }
     ;
 
 M1 : Exp    {
-                    printf("BUG");
-                    if ((!$1.is_const && !table_stack.entryExists($1.text)) || table_stack.entryExists($1.text)) {
-                        output::errorUndef(yylineno, $1.text);
+                    Exp* exp = dynamic_cast<Exp*>($1);
+                    if ((!exp->is_const && !table_stack.entryExists(exp->text)) || table_stack.entryExists(exp->text)) {
+                        output::errorUndef(yylineno, exp->text);
                         exit(1);
                     }
-                    if ($1.type != "BOOL") {
+                    if (exp->type != "BOOL") {
                         output::errorMismatch(yylineno);
                     }
                     table_stack.addNewTable();
+                    $$ = new Exp(exp->text, exp->type, exp->val, exp->is_const);
             }
    ;
 

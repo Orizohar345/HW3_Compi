@@ -76,12 +76,12 @@ bool TablesStack::entryExists(const std::string& name) const {
     return false; // Return false if the entry is not found
 }
 
-Entry TablesStack::getEntry(const std::string& name) const {
+Entry *TablesStack::getEntry(const std::string& name) const {
     // Iterate through tables from top to bottom
     for (const auto& table : symbol_table) {
         auto it = std::find_if(table.begin(), table.end(), [&name](const Entry& entry) { return entry.name == name; });
         if (it != table.end()) {
-            return *it; // Return the found Entry
+            return &(*it); // Return the found Entry
         }
     }
     throw std::runtime_error("Entry not found in the stack");

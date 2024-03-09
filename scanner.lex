@@ -1,7 +1,8 @@
 %{
+        #include "types.h"
         #include "hw3_output.hpp"
 	#include "parser.tab.hpp"
-        #include "types.h"
+
 
 %}
 
@@ -34,8 +35,8 @@ continue        {return CONTINUE;}
 >|<|<=|>=                               {return RELOP_REL;}
 \-|\+                                   {return BINOP_ADD;}
 \/|\*                                   {return BINOP_MULT;}
-[a-zA-Z][a-zA-Z0-9]*                    {yylval.text = yytext; return ID;}
-[1-9][0-9]*|0                           {return NUM;}
+[a-zA-Z][a-zA-Z0-9]*                    {yylval = new Node(yytext); return ID;}
+[1-9][0-9]*|0                           {yylval = new Node(yytext); return NUM;}
 \"([^\n\r\"\\]|\\[rnt"\\])+\"           {return STRING;}
 [ \n\t\r]	                        ;
 \/\/[^\r\n]*[ \r|\n|\r\n]?              ;
