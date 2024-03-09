@@ -30,14 +30,14 @@
 
 %%
 
-Program : Statements { table_stack.removeTopTable(); }
+Program : Statements { output::endScope(); table_stack.removeTopTable(); }
         ;
 
 Statements : Statement {}
            | Statements Statement {}
            ;
 
-Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { table_stack.removeTopTable(); }
+Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { output::endScope(); table_stack.removeTopTable(); }
           | Type ID SC {
                 if (table_stack.entryExists($2->text)) {
                     output::errorDef(yylineno, $2->text);
@@ -47,9 +47,8 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { table_stac
                 table_stack.addToTopTable(Entry($2->text, $1->text));
             }
           | Type ID ASSIGN Exp SC {
-                Exp* exp = dynamic_cast<Exp*>($3);
+                Exp* exp = dynamic_cast<Exp*>($4);
                 if (!exp->is_const && !table_stack.entryExists(exp->text)) {
-                    printf("1");
                     output::errorUndef(yylineno, exp->text);
                     exit(1);
                 }
@@ -64,7 +63,7 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { table_stac
                     exit(1);
                 }
 
-                table_stack.addToTopTable(Entry($2->text, $1->text));
+                table_stack.addToTopTable(Entry($2->text, $1->text, exp->val));
             }
           | ID ASSIGN Exp SC {
                 Exp* exp = dynamic_cast<Exp*>($3);
@@ -84,11 +83,12 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { table_stac
                     output::errorMismatch(yylineno);
                     exit(1);
                 }
+                table_stack.entryChangeVal($1->text, exp->val);
             }
           | Call SC {}
           | RETURN SC {}
           | IF LPAREN M1 RPAREN Statement M2
-          | IF LPAREN M1 RPAREN Statement M2 ELSE { table_stack.addNewTable(); } Statement { table_stack.removeTopTable(); }
+          | IF LPAREN M1 RPAREN Statement M2 ELSE { table_stack.addNewTable(); } Statement {output::endScope(); table_stack.removeTopTable(); }
           | WHILE LPAREN Exp RPAREN {
                 Exp* exp = dynamic_cast<Exp*>($3);
                 if ((!exp->is_const && !table_stack.entryExists(exp->text)) || table_stack.entryExists(exp->text)) {
@@ -102,7 +102,7 @@ Statement : LBRACE { table_stack.addNewTable(); } Statements RBRACE { table_stac
 
                 table_stack.addNewTable();
                 table_stack.addToTopTable(Entry("WHILE", "WHILE"), true);
-            } Statement { table_stack.removeTopTable(); }
+            } Statement {output::endScope(); table_stack.removeTopTable(); }
           | BREAK SC { if (!table_stack.entryExists("WHILE")) { output::errorUnexpectedBreak(yylineno); exit(1); } }
           | CONTINUE SC { if (!table_stack.entryExists("WHILE")) { output::errorUnexpectedContinue(yylineno); exit(1); } }
           ;
@@ -160,12 +160,18 @@ Exp : LPAREN Exp RPAREN {
             int val = verifyByte(exp1->type, exp2->type, exp1->val, exp2->val, "ADD", yylineno);
             $$ = new Exp("", type, val, true);
         }
-    | ID {$$ = new Exp($1->text, "", 0, false);}
+    | ID {
+        if (table_stack.entryExists($1->text)) {
+            Entry entry = table_stack.getEntry($1->text);
+            $$ = new Exp($1->text, entry.type, entry.val, false);
+        } else
+            $$ = new Exp($1->text, "", 0, false);
+        }
     | Call {
          Call* call = dynamic_cast<Call*>($1);
          $$ = new Exp(call->text, call->type, call->val, call->is_const);
          }
-    | NUM { int value = std::stoi($1->text); $$ = new Exp($1->text, "INT", value, true); }
+    | NUM { int value = std::stoi($1->text); $$ = new Exp($1->text, "INT", value, true); Exp* exp1 = dynamic_cast<Exp*>($$);}
     | NUM B {
         int value = std::stoi($1->text);
          $$ = new Exp($1->text, "BYTE", value, true);
@@ -259,7 +265,6 @@ Exp : LPAREN Exp RPAREN {
                 output::errorUndef(yylineno, exp2->text);
                 exit(1);
             }
-
             verifyNumeric(exp1->type, exp2->type, yylineno);
             $$ = new Exp("", "BOOL", 0, true);
         }
@@ -292,7 +297,7 @@ M1 : Exp    {
             }
    ;
 
-M2 : { table_stack.removeTopTable(); }
+M2 : { output::endScope(); table_stack.removeTopTable(); }
    ;
 
 %%

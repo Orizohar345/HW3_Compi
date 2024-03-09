@@ -31,7 +31,7 @@ std::string verifyFunc(std::string func_id, std::string arg_type, int lineno) {
                 }
 
                 return "VOID";
-        } else if (func_id == "prini") {
+        } else if (func_id == "printi") {
                 if (arg_type != "INT" and arg_type != "BYTE" ) {
                         output::errorPrototypeMismatch(lineno, func_id, arg_type);
                         exit(1);

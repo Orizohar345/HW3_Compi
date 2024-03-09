@@ -10,7 +10,6 @@ TablesStack::TablesStack() {
 
 void TablesStack::addNewTable() {
     // Push an empty table onto the stack
-    std::cout << "Add New Table" << std::endl;
     symbol_table.push_back(std::vector<Entry>());
 }
 
@@ -51,7 +50,6 @@ void TablesStack::addToTopTable(Entry&& entry, bool is_func) {
     if (empty()) {
         throw std::runtime_error("Stack is empty");
     }
-     std::cout << "Add New To Top Table" << std::endl;
     if (!is_func) {
         entry.offset = offsets_stack.back();
         offsets_stack.push_back(offsets_stack.back()+1);
@@ -82,5 +80,16 @@ Entry TablesStack::getEntry(const std::string& name) const {
     }
     throw std::runtime_error("Entry not found in the stack");
 }
+
+void TablesStack::entryChangeVal(const std::string& name, int val) {
+    // Iterate through tables from top to bottom
+    for (auto& table : symbol_table) {
+        auto it = std::find_if(table.begin(), table.end(), [&name](const Entry& entry) { return entry.name == name; });
+        if (it != table.end()) {
+            it->val = val; // Return the found Entry
+        }
+    }
+}
+
 
 

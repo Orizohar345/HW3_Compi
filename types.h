@@ -70,21 +70,6 @@ public:
         }
         return *this;
     }
-
-    // Move constructor
-    Exp(Exp&& other) noexcept
-        : Node(std::move(other)), type(std::move(other.type)), val(other.val), is_const(other.is_const) {}
-
-    // Move assignment operator
-    Exp& operator=(Exp&& other) noexcept {
-        if (this != &other) {
-            Node::operator=(std::move(other)); // Call base class move assignment operator
-            type = std::move(other.type);
-            val = other.val;
-            is_const = other.is_const;
-        }
-        return *this;
-    }
 };
 
 class Call : public Exp {
